@@ -1,0 +1,225 @@
+:root {
+  --bg-slate: #A0A5B1;
+  --bg-dark-slate: #8f95a1;
+  --text-main: #ffffff;
+  --text-muted: rgba(255, 255, 255, 0.75);
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'Space Mono', monospace;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  background-color: var(--bg-slate);
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+}
+
+/* Scroll Spacer */
+#scroll-spacer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 350vh;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Floating Grid Node Numbers & Callouts */
+.floating-node-label {
+  position: fixed;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  letter-spacing: 0.5px;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.6);
+  transition: opacity 0.2s ease;
+  z-index: 5;
+}
+
+/* HUD Overlay fixed on screen */
+.hud-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 10;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 2.5rem 3rem;
+}
+
+.hud-header {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  width: 100%;
+}
+
+/* Top Left Branding */
+.brand-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.brand-title {
+  font-family: var(--font-sans);
+  font-size: 2.4rem;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: #ffffff;
+  line-height: 1;
+}
+
+.brand-sub {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.brand-info {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: rgba(255, 255, 255, 0.65);
+  line-height: 1.4;
+  margin-top: 0.2rem;
+}
+
+/* Top Right Manifesto */
+.manifesto-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.4rem;
+  max-width: 280px;
+  text-align: right;
+}
+
+.manifesto-title {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 1px;
+}
+
+.manifesto-body {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.45;
+}
+
+/* Bottom Left Hint & Sound Toggle */
+.bottom-left-hint {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.85);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: auto;
+}
+
+.sound-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.2s ease;
+}
+
+.sound-toggle:hover {
+  opacity: 1.0;
+}
+
+/* Floating Grid Node Numbers & Callouts */
+.floating-node-label {
+  position: fixed;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  letter-spacing: 0.5px;
+  /* background: rgba(18, 24, 34, 0.65); */
+  padding: 2px 6px;
+  /* border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.2); */
+  /* backdrop-filter: blur(4px);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.4); */
+  transition: opacity 0.2s ease;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.floating-node-label .crosshair {
+  font-size: 1rem;
+  opacity: 0.7;
+}
+
+/* Right Side Mouse Scroll Tracker */
+.scroll-tracker {
+  position: fixed;
+  right: 2.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
+  z-index: 20;
+  pointer-events: auto;
+  cursor: pointer;
+  padding: 10px 5px;
+}
+
+.tracker-line-bg {
+  width: 3px;
+  height: 200px;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+
+.tracker-line-fill {
+  width: 100%;
+  height: 0%;
+  background: #ffffff;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.9);
+  border-radius: 2px;
+  transition: height 0.08s linear;
+}
+
+.scroll-percent-badge {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 1px;
+  opacity: 0.9;
+}

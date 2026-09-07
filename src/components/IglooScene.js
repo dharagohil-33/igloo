@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
-import { generateIglooStructure, generateIglooBlockObjects, generateMountainTerrain, splitBatchedGeometry, processIglooBatchedBlocks } from '@/lib/IglooGenerator.js';
+import { generateIglooBlockObjects, splitBatchedGeometry, processIglooBatchedBlocks } from '@/lib/IglooGenerator.js';
 import { setupPostProcessing } from '@/lib/PostProcessing.js';
 import { HUDController } from '@/lib/HUDController.js';
 

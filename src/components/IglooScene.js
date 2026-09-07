@@ -24,10 +24,11 @@ class IglooApp {
     this._animFrameId = null;
 
     // Mouse tracking & Raycaster
-    this.mouse2D = new THREE.Vector2(0, 0);
-    this.mouseWorldHit = new THREE.Vector3(0, 0, 0);
+    this.mouse2D = new THREE.Vector2(-999, -999);
+    this.mouseWorldHit = new THREE.Vector3(-9999, -9999, -9999);
     this.raycaster = new THREE.Raycaster();
     this.isHoveringIgloo = false;
+    this.hasMovedMouse = false;
 
     // Bound event handlers (stored for cleanup)
     this._onResize = () => this._handleResize();
@@ -36,6 +37,11 @@ class IglooApp {
       if (e.touches.length > 0) {
         this._updateMouse(e.touches[0].clientX, e.touches[0].clientY);
       }
+    };
+    this._onMouseLeave = () => {
+      this.isHoveringIgloo = false;
+      this.hasMovedMouse = false;
+      this.mouseWorldHit.set(-99999, -99999, -99999);
     };
 
     this.init();
@@ -50,13 +56,14 @@ class IglooApp {
     this.initHUD();
     this.initEvents();
 
+    if (this.clock) this.clock.start();
     this.animate();
   }
 
   initScene() {
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color('#d1d6e3');
-    this.scene.fog = new THREE.FogExp2('#afb6c7', 0.005);
+    this.scene.background = new THREE.Color('#8f98a6');
+    this.scene.fog = new THREE.FogExp2('#828b99', 0.005);
 
     this.camera = new THREE.PerspectiveCamera(
       30,
@@ -74,29 +81,31 @@ class IglooApp {
     });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.setClearColor(0xd1d6e3, 1.0);
+    this.renderer.setClearColor(0x8f98a6, 1.0);
     this.renderer.toneMapping = THREE.NoToneMapping;
+    this.renderer.domElement.style.opacity = '0';
+    this.renderer.domElement.style.transition = 'opacity 0.35s ease-out';
 
     this.container.appendChild(this.renderer.domElement);
   }
 
   initLights() {
-    // 1. Soft Hemisphere Light (softer ambient arctic sky light)
-    const hemiLight = new THREE.HemisphereLight(0xbdcad8, 0x1f2d3c, 0.28);
+    // 1. Soft Hemisphere Light (softer ambient arctic sky & ground contrast)
+    const hemiLight = new THREE.HemisphereLight(0x909ca8, 0x182028, 0.35);
     this.scene.add(hemiLight);
 
     // 2. Key Directional Light from Top-Right (subtle top highlights)
-    this.topLight = new THREE.DirectionalLight(0xffffff, 0.40);
+    this.topLight = new THREE.DirectionalLight(0xffffff, 0.50);
     this.topLight.position.set(8, 14, 6);
     this.scene.add(this.topLight);
 
     // 3. Side Rim Light from Left-Back (gentle icy rim reflection)
-    const rimLight = new THREE.DirectionalLight(0xa5c6e2, 0.25);
+    const rimLight = new THREE.DirectionalLight(0x8cb6dc, 0.35);
     rimLight.position.set(-8, 10, -6);
     this.scene.add(rimLight);
 
-    // 4. INNER IGLOO LIGHT (subtle glowing cyan-blue inside entrance arch)
-    this.innerIglooLight = new THREE.PointLight(0x98d4ff, 1.5, 0.9);
+    // 4. INNER IGLOO LIGHT (authentic glowing cyan-blue inside entrance arch)
+    this.innerIglooLight = new THREE.PointLight(0x70c4ff, 2.5, 5.0);
     this.innerIglooLight.position.set(0.0, 0.85, 1.8);
     this.scene.add(this.innerIglooLight);
   }
@@ -163,30 +172,31 @@ class IglooApp {
         varying float vEmission;
 
         void main() {
-          vec3 baseColor = texture2D(tMap, vUv).rgb * 0.85;
-          vec3 exploded = texture2D(tMapExploded, vUv).rgb * 0.90 + 0.02;
-          vec3 blue = vec3(0.5, 0.75, 1.0);
+          vec3 texColor = texture2D(tMap, vUv).rgb;
+          vec3 baseColor = pow(texColor, vec3(1.25)) * 0.58;
+          vec3 exploded = pow(texture2D(tMapExploded, vUv).rgb, vec3(1.25)) * 0.62 + 0.01;
+          vec3 blue = vec3(0.65, 0.88, 1.0);
 
           // Fade between 'together' lightmap and 'exploded' lightmap based on displacement
           float textureMix = clamp(5.0 * uDisplacement, 0.0, 1.0);
           vec3 color = mix(baseColor, exploded, textureMix);
 
           // Displacement emission (only when block is displaced)
-          color += pow(max(0.0, vEmission), 2.0) * clamp(1.0 * uDisplacement, 0.0, 1.0) * blue * 0.7;
+          color += pow(max(0.0, vEmission), 2.0) * clamp(1.0 * uDisplacement, 0.0, 1.0) * blue * 0.8;
 
-          // Seam emission glow (power 8.0 matching www.igloo.inc)
-          vec3 powEmission = pow(max(0.0, vEmission), 8.0) * blue * 0.35;
-          color += powEmission * (sin(vWorldPos.x - uTime * 1.0 + 3.2) * 0.5 + 0.5);
+          // Seam emission glow (power 6.0 matching www.igloo.inc)
+          vec3 powEmission = pow(max(0.0, vEmission), 6.0) * blue * 0.90;
+          color += powEmission * (sin(vWorldPos.x - uTime * 0.6 + 3.2) * 0.5 + 0.5);
 
           // Inner dome glow on faces furthest from camera
-          color += max(0.0, smoothstep(0.0, 2.0, vPos.x * 0.5 - vPos.z * 0.5)) * powEmission;
+          color += max(0.0, smoothstep(0.0, 2.0, vPos.x * 0.5 - vPos.z * 0.5)) * powEmission * 1.2;
 
           // Fake SSS sunlight gradient
-          color += (vPos.x * 0.1 + 0.4) * 0.10 * min(vPos.y + 0.5, 1.0) * 0.5;
+          color += (vPos.x * 0.1 + 0.4) * 0.05 * min(vPos.y + 0.5, 1.0) * 0.5;
 
           // Ground bounce
           float verticalGrad = (1.0 - smoothstep(-1.5, 1.0, vPos.y));
-          color += verticalGrad * uBounce * vec3(0.8, 0.9, 1.0) * 0.15;
+          color += verticalGrad * uBounce * vec3(0.8, 0.9, 1.0) * 0.12;
 
           gl_FragColor = vec4(clamp(color, vec3(0.0), vec3(1.0)), 1.0);
         }
@@ -247,21 +257,22 @@ class IglooApp {
         varying vec3 vMouseGlow;
 
         void main() {
-          vec3 terrainColor = texture2D(tMap, vUv).rgb;
+          vec3 texColor = texture2D(tMap, vUv).rgb;
+          vec3 terrainColor = pow(texColor, vec3(1.2)) * 0.65;
 
           // Ground glow under base & around igloo matching www.igloo.inc
           vec3 glow = texture2D(tGroundGlow, vUv).rgb;
-          float glowStrength = (sin(vPos.x - uTime * 1.0 + 3.2) * 0.5 + 0.5);
-          terrainColor += glow * glowStrength * terrainColor.r * 1.2;
-          terrainColor += vMouseGlow * terrainColor.r;
+          float glowStrength = (sin(vPos.x - uTime * 0.6 + 3.2) * 0.5 + 0.5);
+          terrainColor += glow * glowStrength * terrainColor.r * 2.2;
+          terrainColor += vMouseGlow * terrainColor.r * 1.2;
 
           // Blowing snow wind
-          float t = uTime * 0.15;
+          float t = uTime * 0.10;
           float verticalGrad = (1.0 - clamp(vPos.y * 0.3 + 1.1, 0.0, 1.0));
           float wind = texture2D(tWind, vWorldPos.xz * 0.15 + vUv * 0.1 + vec2(-t, -t)).r;
           wind *= texture2D(tWind, vWorldPos.xz * 0.17 + vUv * 0.1 + vec2(-t, -t)).r;
           wind *= verticalGrad;
-          terrainColor = mix(terrainColor, vec3(1.0), wind * 0.5);
+          terrainColor = mix(terrainColor, vec3(0.9), wind * 0.35);
 
           gl_FragColor = vec4(clamp(terrainColor, vec3(0.0), vec3(1.0)), 1.0);
         }
@@ -341,8 +352,8 @@ class IglooApp {
     // 4. Horizon Mountain Peak Material (mountain_color.ktx2)
     this.mountainUniforms = {
       tMap: { value: null },
-      uColor1: { value: new THREE.Color('#d1d6e3') },
-      uColor2: { value: new THREE.Color('#afb6c7') }
+      uColor1: { value: new THREE.Color('#8f98a6') },
+      uColor2: { value: new THREE.Color('#828b99') }
     };
 
     this.mountainMat = new THREE.ShaderMaterial({
@@ -435,11 +446,17 @@ class IglooApp {
 
         const { iglooGroup, blockObjects, totalBlocks } = processIglooBatchedBlocks(subGeometries, blockMaterials[0]);
 
-        // Reassign individual material clones
+        // Reassign individual material clones and initialize smooth state
         blockObjects.forEach((b, idx) => {
           b.mesh.material = blockMaterials[idx];
           b.customMaterial = blockMaterials[idx];
           b.blockNumber = [45, 49, 48, 25, 12, 18, 19, 33, 27, 14][idx % 10];
+          b.targetBounce1 = 0;
+          b.targetBounce2 = 0;
+          b.bounce = 0;
+          b.targetDisplacement1 = 0;
+          b.targetDisplacement2 = 0;
+          b.displacement = 0;
         });
 
         this.iglooGroup = iglooGroup;
@@ -683,8 +700,9 @@ class IglooApp {
 
   createNodeLabels() {
     if (this.nodeLabelPool) {
-      this.nodeLabelPool.forEach(el => el.remove());
+      this.nodeLabelPool.forEach(el => el && el.remove());
     }
+    document.querySelectorAll('.floating-node-label').forEach(el => el.remove());
     this.nodeLabelPool = [];
 
     // Pre-create a pool of 5 floating HTML label callouts matching www.igloo.inc
@@ -693,6 +711,8 @@ class IglooApp {
       el.className = 'floating-node-label';
       el.style.opacity = '0';
       el.style.pointerEvents = 'none';
+      el.style.left = '-9999px';
+      el.style.top = '-9999px';
       el.style.transition = 'opacity 0.15s ease-out';
       document.body.appendChild(el);
       this.nodeLabelPool.push(el);
@@ -702,41 +722,77 @@ class IglooApp {
   updateNodeLabels(iglooRevealFactor) {
     if (!this.blockObjects || this.blockObjects.length === 0 || !this.nodeLabelPool) return;
 
-    const iglooCenter = new THREE.Vector3(0.0, 1.0, 0.0);
+    const iglooCenter = new THREE.Vector3(0.0, 0.8, 0.0);
     const distToIgloo = this.mouseWorldHit.distanceTo(iglooCenter);
     const tempV = new THREE.Vector3();
     const halfW = window.innerWidth / 2;
     const halfH = window.innerHeight / 2;
 
-    // 1. Pointer is NOT hovering over the igloo dome (distance > 3.8) -> Hide all lines and labels!
-    if (distToIgloo > 3.8) {
-      this.nodeLabelPool.forEach(el => {
-        el.style.opacity = '0';
-      });
+    // 1. Pointer is NOT hovering over the igloo dome (distance > 3.8 or not hovering) -> Hide all lines and labels!
+    if (distToIgloo > 3.8 || !this.isHoveringIgloo || !this.hasMovedMouse) {
+      if (this.nodeLabelPool) {
+        this.nodeLabelPool.forEach(el => {
+          if (el) {
+            el.style.opacity = '0';
+            el.style.left = '-9999px';
+            el.style.top = '-9999px';
+          }
+        });
+      }
       if (this.plexusLineMat) {
-        this.plexusLineMat.opacity = Math.max(0.0, this.plexusLineMat.opacity - 0.05);
+        this.plexusLineMat.opacity = 0.0;
+      }
+      if (this.plexusLineMesh) {
+        this.plexusLineMesh.visible = false;
+        this.plexusLineMesh.geometry.setAttribute(
+          'position',
+          new THREE.Float32BufferAttribute([], 3)
+        );
+        if (this.plexusLineMesh.geometry.attributes.position) {
+          this.plexusLineMesh.geometry.attributes.position.needsUpdate = true;
+        }
       }
       return;
     }
 
-    // 2. Pointer IS hovering on the igloo -> Find closest displaced blocks to mouse point
+    // 2. Pointer IS hovering on the igloo -> Find closest blocks to mouse point (excluding bottom ground layer)
     const hoveredBlocks = this.blockObjects
       .map(b => {
-        const p = b.mesh.position;
+        const p = b.mesh.position.clone();
+        if (this.iglooGroup) p.add(this.iglooGroup.position);
         const dist = p.distanceTo(this.mouseWorldHit);
         return { block: b, dist: dist };
       })
-      .filter(item => item.dist < 3.2 && (item.block.displacement > 0.02 || item.dist < 2.2))
+      .filter(item => {
+        if (item.block.centroid && item.block.centroid.y <= 0.45) return false;
+        return item.dist < 3.8 && (item.block.displacement > 0.005 || item.dist < 2.8);
+      })
       .sort((a, b) => a.dist - b.dist)
       .slice(0, 5);
 
-    // If fewer than 2 active displaced blocks are close to pointer, fade out
+    // If fewer than 2 active blocks are close to pointer, fade out completely
     if (hoveredBlocks.length < 2) {
-      this.nodeLabelPool.forEach(el => {
-        el.style.opacity = '0';
-      });
+      if (this.nodeLabelPool) {
+        this.nodeLabelPool.forEach(el => {
+          if (el) {
+            el.style.opacity = '0';
+            el.style.left = '-9999px';
+            el.style.top = '-9999px';
+          }
+        });
+      }
       if (this.plexusLineMat) {
-        this.plexusLineMat.opacity = Math.max(0.0, this.plexusLineMat.opacity - 0.05);
+        this.plexusLineMat.opacity = 0.0;
+      }
+      if (this.plexusLineMesh) {
+        this.plexusLineMesh.visible = false;
+        this.plexusLineMesh.geometry.setAttribute(
+          'position',
+          new THREE.Float32BufferAttribute([], 3)
+        );
+        if (this.plexusLineMesh.geometry.attributes.position) {
+          this.plexusLineMesh.geometry.attributes.position.needsUpdate = true;
+        }
       }
       return;
     }
@@ -746,7 +802,7 @@ class IglooApp {
       const el = this.nodeLabelPool[i];
       if (!el) return;
 
-      const pieceIdx = item.block.index !== undefined ? item.block.index : (i * 11 + 8);
+      const pieceIdx = item.block.pieceIndex !== undefined ? item.block.pieceIndex : (i * 11 + 8);
       const dynamicNum = Math.min(99, Math.max(10, Math.floor(pieceIdx * 1.45 + 12)));
 
       el.innerHTML = `<span class="crosshair">+</span> <span>${dynamicNum}</span>`;
@@ -765,7 +821,7 @@ class IglooApp {
       el.style.left = `${x}px`;
       el.style.top = `${y}px`;
 
-      const closeness = Math.max(0.0, 1.0 - item.dist / 3.2);
+      const closeness = Math.max(0.0, 1.0 - item.dist / 3.8);
       const targetOpacity = (closeness * 0.85 + 0.15) * iglooRevealFactor;
       el.style.opacity = targetOpacity.toFixed(2);
     });
@@ -774,29 +830,40 @@ class IglooApp {
     for (let i = hoveredBlocks.length; i < 5; i++) {
       if (this.nodeLabelPool[i]) {
         this.nodeLabelPool[i].style.opacity = '0';
+        this.nodeLabelPool[i].style.left = '-9999px';
+        this.nodeLabelPool[i].style.top = '-9999px';
       }
     }
 
     // 4. Update 3D Plexus Connecting Lines Network between hovered blocks
     const linePositions = [];
     for (let i = 0; i < hoveredBlocks.length - 1; i++) {
-      const p1 = hoveredBlocks[i].block.mesh.position;
-      const p2 = hoveredBlocks[i + 1].block.mesh.position;
+      const p1 = hoveredBlocks[i].block.mesh.position.clone();
+      const p2 = hoveredBlocks[i + 1].block.mesh.position.clone();
+      if (this.iglooGroup) {
+        p1.add(this.iglooGroup.position);
+        p2.add(this.iglooGroup.position);
+      }
       linePositions.push(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
     }
     if (hoveredBlocks.length >= 3) {
-      const p0 = hoveredBlocks[0].block.mesh.position;
-      const p2 = hoveredBlocks[2].block.mesh.position;
+      const p0 = hoveredBlocks[0].block.mesh.position.clone();
+      const p2 = hoveredBlocks[2].block.mesh.position.clone();
+      if (this.iglooGroup) {
+        p0.add(this.iglooGroup.position);
+        p2.add(this.iglooGroup.position);
+      }
       linePositions.push(p0.x, p0.y, p0.z, p2.x, p2.y, p2.z);
     }
 
     if (this.plexusLineMesh) {
+      this.plexusLineMesh.visible = linePositions.length > 0;
       this.plexusLineMesh.geometry.setAttribute(
         'position',
         new THREE.Float32BufferAttribute(linePositions, 3)
       );
       this.plexusLineMesh.geometry.attributes.position.needsUpdate = true;
-      this.plexusLineMat.opacity = Math.min(0.45, this.plexusLineMat.opacity + 0.08);
+      this.plexusLineMat.opacity = 0.50;
     }
   }
 
@@ -823,25 +890,31 @@ class IglooApp {
   }
 
   initHUD() {
-    this.hudController = new HUDController({
-      onProgressChange: (p) => {
-        this.scrollProgress = p;
-        this.updateScrollCamera(p);
-      }
-    });
+    this.hudController = new HUDController({});
   }
 
-  updateScrollCamera(p) {
-    const camStart = new THREE.Vector3(-13.5, 2.8, 13.5);
-    const camEnd = new THREE.Vector3(-9.5, 5.2, 11.0);
-    const lookStart = new THREE.Vector3(0.0, 1.0, 0.0);
-    const lookEnd = new THREE.Vector3(0.0, 1.1, 0.6);
+  updateMouseCameraHover() {
+    if (!this.hasMovedMouse || !this.camera || !this.controls) return;
 
-    const targetCamPos = new THREE.Vector3().lerpVectors(camStart, camEnd, p);
-    const targetLook = new THREE.Vector3().lerpVectors(lookStart, lookEnd, p);
+    const baseAngle = Math.atan2(13.5, -13.5);
+    const radius = Math.sqrt(13.5 * 13.5 + 13.5 * 13.5);
+    const baseY = 2.8;
 
-    this.camera.position.lerp(targetCamPos, 0.08);
-    this.controls.target.lerp(targetLook, 0.08);
+    const targetAngle = baseAngle - (this.mouse2D.x * 0.20);
+    const targetY = baseY + (this.mouse2D.y * 0.8);
+
+    if (this.currentCamAngle === undefined) {
+      this.currentCamAngle = baseAngle;
+      this.currentCamY = baseY;
+    }
+
+    this.currentCamAngle += (targetAngle - this.currentCamAngle) * 0.05;
+    this.currentCamY += (targetY - this.currentCamY) * 0.05;
+
+    const newX = Math.cos(this.currentCamAngle) * radius;
+    const newZ = Math.sin(this.currentCamAngle) * radius;
+
+    this.camera.position.set(newX, this.currentCamY, newZ);
     this.controls.update();
   }
 
@@ -853,6 +926,7 @@ class IglooApp {
   }
 
   _updateMouse(clientX, clientY) {
+    this.hasMovedMouse = true;
     this.mouse2D.x = (clientX / window.innerWidth) * 2 - 1;
     this.mouse2D.y = -(clientY / window.innerHeight) * 2 + 1;
   }
@@ -861,6 +935,7 @@ class IglooApp {
     window.addEventListener('resize', this._onResize);
     window.addEventListener('mousemove', this._onMouseMove);
     window.addEventListener('touchmove', this._onTouchMove);
+    window.addEventListener('mouseleave', this._onMouseLeave);
   }
 
   /**
@@ -870,12 +945,27 @@ class IglooApp {
   updateMouseHoverEffect() {
     if (!this.blockObjects || this.blockObjects.length === 0) return;
 
-    // Raycast onto plane for mouse hit point calculation
-    this.raycaster.setFromCamera(this.mouse2D, this.camera);
-    const plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -1.2);
-    const hitPoint = new THREE.Vector3();
-    if (this.raycaster.ray.intersectPlane(plane, hitPoint)) {
-      this.mouseWorldHit.lerp(hitPoint, 0.1);
+    // Raycast onto igloo 3D mesh surface for accurate hit point calculation on all sides & back
+    if (this.hasMovedMouse) {
+      this.raycaster.setFromCamera(this.mouse2D, this.camera);
+
+      const targets = [];
+      if (this.blockObjects) {
+        for (let i = 0; i < this.blockObjects.length; i++) {
+          if (this.blockObjects[i].mesh) targets.push(this.blockObjects[i].mesh);
+        }
+      }
+
+      const intersects = this.raycaster.intersectObjects(targets, false);
+      const iglooCenter = new THREE.Vector3(0.0, 0.8, 0.0);
+
+      if (intersects.length > 0 && intersects[0].point.distanceTo(iglooCenter) <= 4.2) {
+        this.isHoveringIgloo = true;
+        this.mouseWorldHit.lerp(intersects[0].point, 0.15);
+      } else {
+        this.isHoveringIgloo = false;
+        this.mouseWorldHit.set(-99999, -99999, -99999);
+      }
     }
 
     const time = this.clock.getElapsedTime();
@@ -884,6 +974,9 @@ class IglooApp {
     const vecZ = new THREE.Vector3(0, 0, 1);
     const qTmp = new THREE.Quaternion();
     const tmpPos = new THREE.Vector3();
+
+    const elapsed = (performance.now() - this.loadStartTime) / 1000;
+    const introRamp = Math.max(0.0, Math.min(1.0, (elapsed - 0.2) / 1.0));
 
     this.blockObjects.forEach((a) => {
       if (!a.centroid || !a.rand) return;
@@ -895,32 +988,36 @@ class IglooApp {
       l *= THREE.MathUtils.lerp(0.5, 2.0, a.rand.z);
       l *= 0.5;
 
-      // 2. Mouse Proximity Push
-      tmpPos.copy(a.centroid);
-      if (this.iglooGroup) {
-        tmpPos.add(this.iglooGroup.position);
+      // 2. Mouse Proximity Push (guarded to prevent startup snapping)
+      let proximityPush = 0.0;
+      if (this.hasMovedMouse && this.mouseWorldHit.x > -9000) {
+        tmpPos.copy(a.centroid);
+        if (this.iglooGroup) {
+          tmpPos.add(this.iglooGroup.position);
+        }
+        const distToMouse = tmpPos.distanceTo(this.mouseWorldHit);
+        const cNoise = Math.sin(time + a.rand.x * 12.342) * a.rand.y;
+        const hDist = THREE.MathUtils.clamp((distToMouse - 1.0) / 2.0, 0, 1);
+        proximityPush = (1.0 - hDist) * (0.6 + 0.3 * cNoise);
       }
-      const distToMouse = tmpPos.distanceTo(this.mouseWorldHit);
-      const cNoise = Math.sin(time + a.rand.x * 12.342) * a.rand.y;
-      const hDist = THREE.MathUtils.clamp((distToMouse - 1.0) / 2.0, 0, 1);
-      const proximityPush = (1.0 - hDist) * (0.6 + 0.3 * cNoise);
 
       l = Math.max(l, proximityPush);
+      l *= introRamp;
 
-      // Spring bounce lerp
+      // Spring bounce inertial lerp
       a.targetBounce1 = l;
-      a.targetBounce2 = a.targetBounce2 !== undefined ? a.targetBounce2 + (a.targetBounce1 - a.targetBounce2) * 0.05 : a.targetBounce1;
-      a.bounce = a.bounce !== undefined ? a.bounce + (a.targetBounce2 - a.bounce) * 0.05 : a.targetBounce2;
+      a.targetBounce2 = (a.targetBounce2 ?? 0) + (a.targetBounce1 - (a.targetBounce2 ?? 0)) * 0.05;
+      a.bounce = (a.bounce ?? 0) + (a.targetBounce2 - (a.bounce ?? 0)) * 0.05;
 
-      // Height modulation (higher blocks displace more)
+      // Height modulation (keeps bottom ground layer grounded while back, side, and top blocks displace)
       const heightFactor = THREE.MathUtils.smoothstep(a.centroid.y, 0.45, 0.7);
       l *= heightFactor;
       l = Math.max(0, l);
 
-      // Dual-stage displacement lerping
+      // Dual-stage displacement inertial lerp
       a.targetDisplacement1 = l;
-      a.targetDisplacement2 = a.targetDisplacement2 !== undefined ? a.targetDisplacement2 + (a.targetDisplacement1 - a.targetDisplacement2) * 0.06 : a.targetDisplacement1;
-      a.displacement = a.displacement !== undefined ? a.displacement + (a.targetDisplacement2 - a.displacement) * 0.06 : a.targetDisplacement2;
+      a.targetDisplacement2 = (a.targetDisplacement2 ?? 0) + (a.targetDisplacement1 - (a.targetDisplacement2 ?? 0)) * 0.05;
+      a.displacement = (a.displacement ?? 0) + (a.targetDisplacement2 - (a.displacement ?? 0)) * 0.05;
 
       // Position update (outward radial vector from centroid)
       a.position.copy(a.centroid).addScaledVector(a.centroid, a.displacement);
@@ -954,6 +1051,7 @@ class IglooApp {
     const deltaTime = this.clock.getDelta();
 
     this.updateMouseHoverEffect();
+    this.updateMouseCameraHover();
 
     if (this.bgUniforms) {
       this.bgUniforms.uTime.value = elapsedTime;
@@ -990,6 +1088,10 @@ class IglooApp {
       this.iceMat.depthWrite = true;
     }
 
+    if (this.renderer && this.renderer.domElement) {
+      this.renderer.domElement.style.opacity = '1';
+    }
+
     this.hudController.update(deltaTime);
     this.updateNodeLabels(revealFactor);
 
@@ -1006,10 +1108,14 @@ class IglooApp {
     window.removeEventListener('resize', this._onResize);
     window.removeEventListener('mousemove', this._onMouseMove);
     window.removeEventListener('touchmove', this._onTouchMove);
+    window.removeEventListener('mouseleave', this._onMouseLeave);
 
     // Remove injected node label divs
-    this.nodeLabelElements.forEach(item => item.element && item.element.remove());
-    this.nodeLabelElements = [];
+    if (this.nodeLabelPool) {
+      this.nodeLabelPool.forEach(el => el && el.remove());
+      this.nodeLabelPool = [];
+    }
+    document.querySelectorAll('.floating-node-label').forEach(el => el.remove());
 
     this.renderer.dispose();
     if (this.container.contains(this.renderer.domElement)) {

@@ -15,9 +15,9 @@ export function setupPostProcessing(scene, camera, renderer) {
   // preventing the ice dome body from turning into an overexposed white blob.
   const bloomPass = new UnrealBloomPass(
     new THREE.Vector2(window.innerWidth, window.innerHeight),
-    0.15, // strength
-    0.25, // radius
-    0.85  // threshold
+    0.35, // strength
+    0.35, // radius
+    0.70  // threshold
   );
   composer.addPass(bloomPass);
 

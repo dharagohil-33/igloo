@@ -21,18 +21,7 @@ html, body {
   background-color: var(--bg-slate);
   color: var(--text-main);
   font-family: var(--font-sans);
-  overflow-x: hidden;
-}
-
-/* Scroll Spacer */
-#scroll-spacer {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 350vh;
-  pointer-events: none;
-  z-index: 0;
+  overflow: hidden;
 }
 
 /* Floating Grid Node Numbers & Callouts */

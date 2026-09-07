@@ -94,6 +94,8 @@ export function processIglooBatchedBlocks(subGeometries, iceMaterial) {
     }
     posAttr.needsUpdate = true;
     geo.computeVertexNormals();
+    geo.computeBoundingSphere();
+    geo.computeBoundingBox();
 
     const mesh = new THREE.Mesh(geo, iceMaterial);
     mesh.position.copy(centroid);
